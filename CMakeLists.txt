@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(bluefox3)
-
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -O0 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-std=c++17 -Wall -O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-std=c++17 -Wall -O3")
@@ -12,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   camera_info_manager 
   sensor_msgs
+  std_msgs
   )
 
 find_package(mvIMPACT_Acquire REQUIRED)
@@ -23,7 +25,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include ${mvIMPACT_Acquire_INCLUDE_DIRS}
   LIBRARIES bluefox3 ${mvIMPACT_Acquire_LIBRARIES}
-  CATKIN_DEPENDS camera_info_manager dynamic_reconfigure image_transport roscpp sensor_msgs
+  CATKIN_DEPENDS camera_info_manager dynamic_reconfigure image_transport roscpp sensor_msgs std_msgs
   )
 
 ###########
@@ -35,6 +37,8 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${mvIMPACT_Acquire_INCLUDE_DIRS}
   )
+
+#add_executable(Bluefox3 src/gencam.cpp)
 
 add_library(Bluefox3
   src/bluefox3.cpp

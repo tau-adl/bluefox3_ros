@@ -1,6 +1,6 @@
-image_width: 1280
-image_height: 1024
-camera_name: bluefox3_front
+image_width: 960
+image_height: 720
+camera_name: bluefox3_F0300110
 camera_matrix:
   rows: 3
   cols: 3

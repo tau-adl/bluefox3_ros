@@ -10,6 +10,7 @@
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/fill_image.h>
+#include <std_msgs/String.h>
 #include <camera_info_manager/camera_info_manager.h>
 #include <dynamic_reconfigure/server.h>
 
@@ -35,7 +36,6 @@
 
 namespace bluefox3
 {
-
   /* struct ThreadParameter //{ */
 
   struct ThreadParameter
@@ -66,9 +66,15 @@ namespace bluefox3
     const std::string m_node_name;
     bool m_running;
 
+    ros::Subscriber m_sub;
+    void triggerCallback(const std_msgs::StringConstPtr msgPtr);
+    std::queue<std::string> m_trigger_queue;
+
   private:
     DeviceManager m_devMgr;
     Device* m_cameraDevice;
+    std::shared_ptr<GenICam::ImageFormatControl> m_GenICamImageFormat_ptr;
+    std::shared_ptr<ImageDestination> m_destinationFormat_ptr;
     std::shared_ptr<GenICam::AcquisitionControl> m_GenICamACQ_ptr;
     std::shared_ptr<ImageProcessing> m_imgProc_ptr;
     std::shared_ptr<ThreadParameter> m_threadParam_ptr;
@@ -105,7 +111,6 @@ namespace bluefox3
   private:
     // | --------------------- Helper methods --------------------- |
     void imageCallback(std::shared_ptr<Request> pRequest, std::shared_ptr<ThreadParameter> threadParameter_ptr);
-
     void dynRecCallback(bluefox3::Bluefox3Config& cfg, [[maybe_unused]] uint32_t level);
 
     template <typename T>
