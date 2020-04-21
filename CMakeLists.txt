@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 project(bluefox3)
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -O0 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-std=c++17 -Wall -O0 -g")
@@ -46,6 +47,7 @@ add_library(Bluefox3
 add_dependencies(Bluefox3
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_gencfg
   ${mvIMPACT_Acquire_EXPORTED_TARGETS}
   )
 target_link_libraries(Bluefox3

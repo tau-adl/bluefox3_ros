@@ -89,25 +89,6 @@ namespace bluefox3
     std::string pixelFormatToEncoding(const PropertyIImageBufferPixelFormat& pixel_format);
     std::string bayerPatternToEncoding(const PropertyIBayerMosaicParity& bayer_pattern, int bytes_per_pixel);
 
-    // | -------------- Property manipulation methods ------------- |
-    template <typename PropertyType>
-    void writeProperty(const PropertyType& prop, typename PropertyType::value_type value);
-    template <typename PropertyType>
-    bool readProperty(const PropertyType& prop, typename PropertyType::value_type& value);
-    template <typename PropertyType>
-    void writeAndReadProperty(const PropertyType& prop, typename PropertyType::value_type& value);
-    template <typename PropertyType>
-    void writeDictProperty(const PropertyType& prop, const std::string& keystr);
-    template <typename PropertyType>
-    bool readDictProperty(const PropertyType& prop, std::string& key);
-    template <typename PropertyType>
-    void writeAndReadDictProperty(const PropertyType& prop, std::string& value);
-
-  private:
-    template <typename PropertyType>
-    void setMirrorMode(const PropertyType& prop, bool& TopDown, bool& LeftRight);
-    /* void setWhiteBalance(const TWhiteBalanceParameter wbp, const double r_gain, const double g_gain, const double b_gain); */
-
   private:
     // | --------------------- Helper methods --------------------- |
     void imageCallback(std::shared_ptr<Request> pRequest, std::shared_ptr<ThreadParameter> threadParameter_ptr);
