@@ -4,11 +4,11 @@
     {
 
         /* triggerCallback() method //{ */
-        void Bluefox3::triggerCallback(const std_msgs::StringConstPtr msgPtr){
-            //ROS_INFO("Trigger [%d]");
+        void Bluefox3::triggerCallback(const std_msgs::HeaderConstPtr msgPtr){
+            //ROS_INFO("Trigger");
             m_GenICamACQ_ptr -> triggerSoftware.call();
             std::lock_guard<std::mutex> lck(m_pub_mtx);
-            m_trigger_queue.push(msgPtr->data);
+           // m_trigger_queue.push(msgPtr->data);
         }
     /* pixelFormatToEncoding() function //{ */
 
@@ -107,7 +107,7 @@
       ROS_INFO_STREAM_THROTTLE(2.0, "[" << m_node_name.c_str() << "]: "
                                         << "Info from " << threadParameter_ptr->cameraDevice_ptr->serial.read() << ": " << s.framesPerSecond.name() << ": "
                                         << s.framesPerSecond.readS() << ", " << s.errorCount.name() << ": " << s.errorCount.readS() << ", "
-                                        << s.captureTime_s.name() << ": " << capture_time_corrected);
+                                        << s.captureTime_s.name() << ": " << capture_time_corrected << ", Exposure: " << request_ptr->chunkExposureTime.read());
     }
     if (request_ptr->isOK())
     {
@@ -320,6 +320,13 @@
 
         m_destinationFormat_ptr = std::make_shared<ImageDestination>(m_cameraDevice);
 
+        m_GenICamImageChunk_ptr = std::make_shared<GenICam::ChunkDataControl>(m_cameraDevice);
+        m_GenICamImageChunk_ptr -> chunkModeActive.write(bTrue);
+        m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("ExposureTime"));
+        m_GenICamImageChunk_ptr -> chunkEnable.write(bTrue);
+        m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("Timestamp"));
+        m_GenICamImageChunk_ptr -> chunkEnable.write(bTrue);
+
         m_threadParam_ptr = std::make_shared<ThreadParameter>(m_cameraDevice);
 
         requestProvider_ptr = std::make_shared<helper::RequestProvider>(m_cameraDevice);
@@ -333,7 +340,7 @@
 
         // | ----------- Subscribe to trigger ----------- |
         const auto cbk_sub = boost::bind(&Bluefox3::triggerCallback, this, _1);
-        m_sub = _nh.subscribe<std_msgs::String>("trigger", 10, cbk_sub);
+        m_sub = _nh.subscribe<std_msgs::Header>("trigger", 10, cbk_sub);
 
         m_running = true;
 

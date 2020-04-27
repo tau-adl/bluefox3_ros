@@ -10,7 +10,7 @@
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/fill_image.h>
-#include <std_msgs/String.h>
+#include <std_msgs/Header.h>
 #include <camera_info_manager/camera_info_manager.h>
 #include <dynamic_reconfigure/server.h>
 
@@ -67,7 +67,7 @@ namespace bluefox3
     bool m_running;
 
     ros::Subscriber m_sub;
-    void triggerCallback(const std_msgs::StringConstPtr msgPtr);
+    void triggerCallback(const std_msgs::HeaderConstPtr msgPtr);
     std::queue<std::string> m_trigger_queue;
 
   private:
@@ -77,6 +77,7 @@ namespace bluefox3
     std::shared_ptr<ImageDestination> m_destinationFormat_ptr;
     std::shared_ptr<GenICam::AcquisitionControl> m_GenICamACQ_ptr;
     std::shared_ptr<ImageProcessing> m_imgProc_ptr;
+    std::shared_ptr<GenICam::ChunkDataControl> m_GenICamImageChunk_ptr;
     std::shared_ptr<ThreadParameter> m_threadParam_ptr;
     std::shared_ptr<helper::RequestProvider> requestProvider_ptr;
 
