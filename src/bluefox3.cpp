@@ -5,16 +5,20 @@
 
         /* triggerCallback() method //{ */
         void Bluefox3::triggerCallback(const std_msgs::HeaderConstPtr msgPtr){
-            //ROS_INFO("Trigger");
+            // Make a copy for Queue
+            std_msgs::Header tmp_header;
+            tmp_header.seq = msgPtr->seq;
+            tmp_header.stamp = msgPtr->stamp;
+            tmp_header.frame_id = msgPtr->frame_id;
             m_GenICamACQ_ptr -> triggerSoftware.call();
+
             std::lock_guard<std::mutex> lck(m_pub_mtx);
-           // m_trigger_queue.push(msgPtr->data);
+            m_trigger_queue.push(tmp_header);
         }
     /* pixelFormatToEncoding() function //{ */
 
     std::string Bluefox3::pixelFormatToEncoding(const PropertyIImageBufferPixelFormat& pixel_format)
     {
-    /* ROS_ERROR_STREAM_THROTTLE(1.0, "[" << m_node_name << "]: pixel format: '" << pixel_format.readS() << "'"); */
     std::string ret = "unknown";
     switch (pixel_format.read())
     {
@@ -102,6 +106,7 @@
     // display some statistical information every 100th image
     const Statistics& s = threadParameter_ptr->statistics;
     const ros::Duration capture_time_corrected(s.captureTime_s.read()/10.0);
+    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/10.0/2.0);
     if (threadParameter_ptr->requestsCaptured % 50 == 0)
     {
       ROS_INFO_STREAM_THROTTLE(2.0, "[" << m_node_name.c_str() << "]: "
@@ -134,12 +139,14 @@
       image_msg.header.frame_id = m_frame_id;
 
       sensor_msgs::CameraInfo cinfo_msg = m_cinfoMgr_ptr->getCameraInfo();
-      cinfo_msg.header = image_msg.header;
 
       std::lock_guard<std::mutex> lck(m_pub_mtx);
-      //std::string tmp = m_trigger_queue.front();
-      //m_trigger_queue.pop();
-      //ROS_INFO("%s--%d", tmp.c_str(), m_trigger_queue.size());
+      if (!m_trigger_queue.empty()) {
+          image_msg.header.stamp = m_trigger_queue.front().stamp + exposure_time_corrected;
+          m_trigger_queue.pop();
+      }
+
+      cinfo_msg.header = image_msg.header;
       m_pub.publish(image_msg, cinfo_msg);
     } else
     {
@@ -233,11 +240,13 @@
         std::string acq_trigger_source;
         std::string acq_trigger_select;
 
+        // Required
         success = success && getParamCheck(nh, "camera_serial", camera_serial);
         success = success && getParamCheck(nh, "camera_name", camera_name);
         success = success && getParamCheck(nh, "calib_url", calib_url);
         success = success && getParamCheck(nh, "frame_id", m_frame_id);
 
+        // Optional
         getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Software"));
         getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("On"));
         getParamCheck(nh, "trigger_select", acq_trigger_select, std::string("FrameStart"));
@@ -251,9 +260,11 @@
           return;
         }
 
+        // Setup CameraInfo manager
         m_cinfoMgr_ptr = std::make_shared<camera_info_manager::CameraInfoManager>(nh, camera_name, calib_url);
         m_cinfoMgr_ptr->loadCameraInfo(calib_url);
 
+        // Setup initial dynamic reconfigure parameters
         Bluefox3Config cfg;
         // Exposure
         cfg.acq_exposure_time = acq_exposure_time;
@@ -308,18 +319,23 @@
 
 
         //}
+        // start at Continuous acquisition mode, set up pointer
         m_GenICamACQ_ptr = std::make_shared<GenICam::AcquisitionControl>(m_cameraDevice);
         m_GenICamACQ_ptr->acquisitionMode.writeS(cfg.acq_mode);
 
+        // for possible future use
         m_imgProc_ptr = std::make_shared<ImageProcessing>(m_cameraDevice);
 
+        // Setup imageFormatControl configuration
         m_GenICamImageFormat_ptr = std::make_shared<GenICam::ImageFormatControl>(m_cameraDevice);
         m_GenICamImageFormat_ptr -> pixelFormat.writeS(cfg.ifc_pixel_format);
         m_GenICamImageFormat_ptr -> height.writeS(cfg.ifc_height);
         m_GenICamImageFormat_ptr -> width.writeS(cfg.ifc_width);
 
+        // Setup ImageDestination pointer
         m_destinationFormat_ptr = std::make_shared<ImageDestination>(m_cameraDevice);
 
+        // Set up ChunkData configuration
         m_GenICamImageChunk_ptr = std::make_shared<GenICam::ChunkDataControl>(m_cameraDevice);
         m_GenICamImageChunk_ptr -> chunkModeActive.write(bTrue);
         m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("ExposureTime"));
@@ -327,18 +343,23 @@
         m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("Timestamp"));
         m_GenICamImageChunk_ptr -> chunkEnable.write(bTrue);
 
+        // image callback statistics pointer
         m_threadParam_ptr = std::make_shared<ThreadParameter>(m_cameraDevice);
 
+        // Request pointer (see wxPropView 'Request' field for more info)
         requestProvider_ptr = std::make_shared<helper::RequestProvider>(m_cameraDevice);
 
+        // setup dynamic reconfigure callback
         const auto cbk_dynRec = boost::bind(&Bluefox3::dynRecCallback, this, _1, _2);
         m_dynRecServer_ptr->setCallback(cbk_dynRec);
 
         // | ----------- Start the actual image acquisition ----------- |
+        // setup acquisition callback, and start the queue.
         const auto cbk_img = std::bind(&Bluefox3::imageCallback, this, std::placeholders::_1, std::placeholders::_2);
         requestProvider_ptr->acquisitionStart(cbk_img, m_threadParam_ptr);
 
         // | ----------- Subscribe to trigger ----------- |
+        // setup the trigger subscriber callback
         const auto cbk_sub = boost::bind(&Bluefox3::triggerCallback, this, _1);
         m_sub = _nh.subscribe<std_msgs::Header>("trigger", 10, cbk_sub);
 

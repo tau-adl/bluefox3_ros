@@ -68,7 +68,7 @@ namespace bluefox3
 
     ros::Subscriber m_sub;
     void triggerCallback(const std_msgs::HeaderConstPtr msgPtr);
-    std::queue<std::string> m_trigger_queue;
+    std::queue<std_msgs::Header> m_trigger_queue;
 
   private:
     DeviceManager m_devMgr;
