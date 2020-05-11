@@ -5,15 +5,18 @@
 
         /* triggerCallback() method //{ */
         void Bluefox3::triggerCallback(const std_msgs::HeaderConstPtr msgPtr){
-            // Make a copy for Queue
-            std_msgs::Header tmp_header;
-            tmp_header.seq = msgPtr->seq;
-            tmp_header.stamp = msgPtr->stamp;
-            tmp_header.frame_id = msgPtr->frame_id;
-            m_GenICamACQ_ptr -> triggerSoftware.call();
 
-            std::lock_guard<std::mutex> lck(m_pub_mtx);
-            m_trigger_queue.push(tmp_header);
+            if (strcmp(m_GenICamACQ_ptr -> triggerMode.readS().c_str(), "On") == 0) {
+                // Make a copy for Queue
+                std_msgs::Header tmp_header;
+                tmp_header.seq = msgPtr->seq;
+                tmp_header.stamp = msgPtr->stamp;
+                tmp_header.frame_id = msgPtr->frame_id;
+                m_GenICamACQ_ptr -> triggerSoftware.call();
+
+                std::lock_guard<std::mutex> lck(m_pub_mtx);
+                m_trigger_queue.push(tmp_header);
+            }
         }
     /* pixelFormatToEncoding() function //{ */
 
@@ -106,7 +109,7 @@
     // display some statistical information every 100th image
     const Statistics& s = threadParameter_ptr->statistics;
     const ros::Duration capture_time_corrected(s.captureTime_s.read()/10.0);
-    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/10.0/2.0);
+    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/10000000.0/2.0);
     if (threadParameter_ptr->requestsCaptured % 50 == 0)
     {
       ROS_INFO_STREAM_THROTTLE(2.0, "[" << m_node_name.c_str() << "]: "
@@ -178,10 +181,22 @@
     m_GenICamACQ_ptr->triggerSelector.writeS( cfg.acq_trigger_selector );
     m_GenICamACQ_ptr->triggerSource.writeS( cfg.acq_trigger_source );
     m_GenICamACQ_ptr->triggerMode.writeS( cfg.acq_trigger_mode );
+
     m_GenICamACQ_ptr->exposureAuto.writeS(cfg.acq_exposure_AECMode);
     m_GenICamACQ_ptr->exposureTime.writeS(cfg.acq_exposure_time);
 
     m_destinationFormat_ptr -> pixelFormat.writeS(cfg.dest_pixel_format);
+
+        try
+        {
+            m_GenICamACQ_ptr->mvExposureAutoUpperLimit.write(cfg.acq_exp_limit_upper);
+            m_GenICamACQ_ptr->mvExposureAutoLowerLimit.write(cfg.acq_exp_limit_lower);
+        }
+        catch (mvIMPACT::acquire::ImpactAcquireException& e)
+        {
+            ROS_DEBUG("[%s]: An error occurred (%s). Auto-Exposure has to be on 'Continuous' for that feature.", m_node_name.c_str(), e.getErrorString().c_str());
+
+        }
     }
     //}
 
@@ -233,12 +248,17 @@
         std::string calib_url;
 
         std::string imgproc_mirror_mode;
+        std::string acq_mode;
         std::string acq_exposure_time;
         std::string acq_autoexp_mode;
 
         std::string acq_trigger_enable;
         std::string acq_trigger_source;
         std::string acq_trigger_select;
+        std::string acq_trigger_activation;
+
+        double acq_autoexp_limit_upper;
+        double acq_autoexp_limit_lower;
 
         // Required
         success = success && getParamCheck(nh, "camera_serial", camera_serial);
@@ -247,11 +267,15 @@
         success = success && getParamCheck(nh, "frame_id", m_frame_id);
 
         // Optional
+        getParamCheck(nh, "acquisition_mode", acq_mode, std::string("Continuous"));
         getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Software"));
-        getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("On"));
+        getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("Off"));
         getParamCheck(nh, "trigger_select", acq_trigger_select, std::string("FrameStart"));
-        getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Off"));
+        getParamCheck(nh, "trigger_source", acq_trigger_activation, std::string("AnyEdge"));
+        getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Continuous"));
         getParamCheck(nh, "exposure_time", acq_exposure_time, std::string("10000"));
+        getParamCheck(nh, "exposure_auto_upper_limit", acq_autoexp_limit_upper, 25000.0);
+        getParamCheck(nh, "exposure_auto_lower_limit", acq_autoexp_limit_lower, 10000.0);
 
         if (!success)
         {
@@ -269,28 +293,31 @@
         // Exposure
         cfg.acq_exposure_time = acq_exposure_time;
         cfg.acq_exposure_AECMode = acq_autoexp_mode;
+        cfg.acq_exp_limit_upper = acq_autoexp_limit_upper;
+        cfg.acq_exp_limit_lower = acq_autoexp_limit_lower;
 
         // Triggering
-        cfg.acq_mode = std::string("Continuous"); //TODO
+        cfg.acq_mode = acq_mode;
         cfg.acq_trigger_mode = acq_trigger_enable;
         cfg.acq_trigger_selector = acq_trigger_select;
         cfg.acq_trigger_source = acq_trigger_source;
-        cfg.acq_trigger_activation = std::string("AnyEdge"); //TODO
+        cfg.acq_trigger_activation = acq_trigger_activation;
 
         // Image & Destination Format
-        cfg.ifc_pixel_format = std::string("BayerGR8"); //TODO
-        cfg.ifc_height = std::string("720"); //TODO
-        cfg.ifc_width = std::string("960"); //TODO
-        cfg.dest_pixel_format = std::string("Mono8"); //TODO
+        // keeping these constant to ensure the rpi can handle the input data stream
+        cfg.ifc_pixel_format = std::string("BayerGR8");
+        cfg.ifc_height = std::string("720");
+        cfg.ifc_width = std::string("960");
+        cfg.dest_pixel_format = std::string("Mono8");
 
-        m_dynRecServer_ptr->updateConfig(cfg);
+        //m_dynRecServer_ptr->updateConfig(cfg);
 
         //}
 
         /* initialize publishers//{ */
 
         image_transport::ImageTransport it(nh);
-        m_pub = it.advertiseCamera("image_raw", 5);
+        m_pub = it.advertiseCamera("image_raw", 1);
         //}
 
         /* try to find the camera device //{ */
@@ -321,7 +348,8 @@
         //}
         // start at Continuous acquisition mode, set up pointer
         m_GenICamACQ_ptr = std::make_shared<GenICam::AcquisitionControl>(m_cameraDevice);
-        m_GenICamACQ_ptr->acquisitionMode.writeS(cfg.acq_mode);
+        m_GenICamACQ_ptr->acquisitionMode.writeS(acq_mode);
+        m_dynRecServer_ptr->updateConfig(cfg);
 
         // for possible future use
         m_imgProc_ptr = std::make_shared<ImageProcessing>(m_cameraDevice);
@@ -373,8 +401,10 @@
         /* ~Bluefox3() destructor //{ */
         Bluefox3::~Bluefox3()
         {
-        if (m_running)
-          requestProvider_ptr->acquisitionStop();
+        if (m_running) {
+            m_GenICamACQ_ptr->exposureAuto.writeS(std::string("Continuous"));
+            requestProvider_ptr->acquisitionStop();
+        }
         if (m_cameraDevice && m_cameraDevice->isOpen())
           m_cameraDevice->close();
         }
