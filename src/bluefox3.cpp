@@ -194,7 +194,7 @@
         }
         catch (mvIMPACT::acquire::ImpactAcquireException& e)
         {
-            ROS_DEBUG("[%s]: An error occurred (%s). Auto-Exposure has to be on 'Continuous' for that feature.", m_node_name.c_str(), e.getErrorString().c_str());
+            ROS_INFO("[%s]: An error occurred (%s). Auto-Exposure has to be on 'Continuous' for that feature.", m_node_name.c_str(), e.getErrorString().c_str());
 
         }
     }
@@ -269,7 +269,7 @@
         // Optional
         getParamCheck(nh, "acquisition_mode", acq_mode, std::string("Continuous"));
         getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Software"));
-        getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("Off"));
+        getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("On"));
         getParamCheck(nh, "trigger_select", acq_trigger_select, std::string("FrameStart"));
         getParamCheck(nh, "trigger_source", acq_trigger_activation, std::string("AnyEdge"));
         getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Continuous"));
