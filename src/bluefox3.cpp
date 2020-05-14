@@ -348,6 +348,13 @@
         //}
         // start at Continuous acquisition mode, set up pointer
         m_GenICamACQ_ptr = std::make_shared<GenICam::AcquisitionControl>(m_cameraDevice);
+
+        // defaulting some common auto-exposure settings
+        m_GenICamACQ_ptr->exposureAuto.writeS(std::string("Continuous"));
+        m_GenICamACQ_ptr->mvExposureAutoAverageGrey.writeS(std::string("50"));
+        m_GenICamACQ_ptr->mvExposureAutoHighlightAOI.writeS(std::string("Off"));
+        m_GenICamACQ_ptr->mvExposureAutoAOIMode.writeS(std::string("mvFull"));
+        m_GenICamACQ_ptr->mvExposureAutoMode.writeS(std::string("mvDevice"));
         m_GenICamACQ_ptr->acquisitionMode.writeS(acq_mode);
         m_dynRecServer_ptr->updateConfig(cfg);
 
@@ -401,10 +408,8 @@
         /* ~Bluefox3() destructor //{ */
         Bluefox3::~Bluefox3()
         {
-        if (m_running) {
-            m_GenICamACQ_ptr->exposureAuto.writeS(std::string("Continuous"));
+        if (m_running)
             requestProvider_ptr->acquisitionStop();
-        }
         if (m_cameraDevice && m_cameraDevice->isOpen())
           m_cameraDevice->close();
         }
