@@ -271,7 +271,7 @@
         getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Software"));
         getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("On"));
         getParamCheck(nh, "trigger_select", acq_trigger_select, std::string("FrameStart"));
-        getParamCheck(nh, "trigger_source", acq_trigger_activation, std::string("AnyEdge"));
+        getParamCheck(nh, "trigger_activation", acq_trigger_activation, std::string("AnyEdge"));
         getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Continuous"));
         getParamCheck(nh, "exposure_time", acq_exposure_time, std::string("10000"));
         getParamCheck(nh, "exposure_auto_upper_limit", acq_autoexp_limit_upper, 25000.0);
