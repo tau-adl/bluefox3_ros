@@ -305,7 +305,7 @@
 
         // Image & Destination Format
         // keeping these constant to ensure the rpi can handle the input data stream
-        cfg.ifc_pixel_format = std::string("BayerGR8");
+        cfg.ifc_pixel_format = std::string("Mono8");
         cfg.ifc_height = std::string("720");
         cfg.ifc_width = std::string("960");
         cfg.dest_pixel_format = std::string("Mono8");
@@ -351,11 +351,17 @@
 
         // defaulting some common auto-exposure settings
         m_GenICamACQ_ptr->exposureAuto.writeS(std::string("Continuous"));
+        ROS_INFO("Set exposure auto continuous");
         m_GenICamACQ_ptr->mvExposureAutoAverageGrey.writeS(std::string("50"));
+        ROS_INFO("Set avg gray");
         m_GenICamACQ_ptr->mvExposureAutoHighlightAOI.writeS(std::string("Off"));
+        ROS_INFO("auto highlight");
         m_GenICamACQ_ptr->mvExposureAutoAOIMode.writeS(std::string("mvFull"));
-        m_GenICamACQ_ptr->mvExposureAutoMode.writeS(std::string("mvDevice"));
+        ROS_INFO("aoi mode");
+        //m_GenICamACQ_ptr->mvExposureAutoMode.writeS(std::string("mvDevice"));
+        ROS_INFO("auto exposure mode");
         m_GenICamACQ_ptr->acquisitionMode.writeS(acq_mode);
+        ROS_INFO("acq mode");
         m_dynRecServer_ptr->updateConfig(cfg);
 
         // for possible future use
@@ -364,8 +370,11 @@
         // Setup imageFormatControl configuration
         m_GenICamImageFormat_ptr = std::make_shared<GenICam::ImageFormatControl>(m_cameraDevice);
         m_GenICamImageFormat_ptr -> pixelFormat.writeS(cfg.ifc_pixel_format);
+        ROS_INFO("pixel format");
         m_GenICamImageFormat_ptr -> height.writeS(cfg.ifc_height);
+        ROS_INFO("height");
         m_GenICamImageFormat_ptr -> width.writeS(cfg.ifc_width);
+        ROS_INFO("width");
 
         // Setup ImageDestination pointer
         m_destinationFormat_ptr = std::make_shared<ImageDestination>(m_cameraDevice);
@@ -373,10 +382,15 @@
         // Set up ChunkData configuration
         m_GenICamImageChunk_ptr = std::make_shared<GenICam::ChunkDataControl>(m_cameraDevice);
         m_GenICamImageChunk_ptr -> chunkModeActive.write(bTrue);
+        ROS_INFO("chunk active");
         m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("ExposureTime"));
+        ROS_INFO("select exposure time");
         m_GenICamImageChunk_ptr -> chunkEnable.write(bTrue);
+        ROS_INFO("set true");
         m_GenICamImageChunk_ptr -> chunkSelector.writeS(std::string("Timestamp"));
+        ROS_INFO("select timestamp");
         m_GenICamImageChunk_ptr -> chunkEnable.write(bTrue);
+        ROS_INFO("set true");
 
         // image callback statistics pointer
         m_threadParam_ptr = std::make_shared<ThreadParameter>(m_cameraDevice);
