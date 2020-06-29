@@ -76,6 +76,7 @@ namespace bluefox3
     std::shared_ptr<GenICam::ImageFormatControl> m_GenICamImageFormat_ptr;
     std::shared_ptr<ImageDestination> m_destinationFormat_ptr;
     std::shared_ptr<GenICam::AcquisitionControl> m_GenICamACQ_ptr;
+    std::shared_ptr<GenICam::CounterAndTimerControl> m_GenICamCounterTimer_ptr;
     std::shared_ptr<ImageProcessing> m_imgProc_ptr;
     std::shared_ptr<GenICam::ChunkDataControl> m_GenICamImageChunk_ptr;
     std::shared_ptr<ThreadParameter> m_threadParam_ptr;
