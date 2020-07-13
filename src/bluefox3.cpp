@@ -12,7 +12,7 @@
                 tmp_header.seq = msgPtr->seq;
                 tmp_header.stamp = msgPtr->stamp;
                 tmp_header.frame_id = msgPtr->frame_id;
-                m_GenICamACQ_ptr -> triggerSoftware.call();
+                //m_GenICamACQ_ptr -> triggerSoftware.call();
 
                 std::lock_guard<std::mutex> lck(m_pub_mtx);
                 m_trigger_queue.push(tmp_header);
