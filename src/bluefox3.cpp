@@ -374,6 +374,9 @@
         m_GenICamImageFormat_ptr -> pixelFormat.writeS(cfg.ifc_pixel_format);
         m_GenICamImageFormat_ptr -> height.writeS(cfg.ifc_height);
         m_GenICamImageFormat_ptr -> width.writeS(cfg.ifc_width);
+        m_GenICamImageFormat_ptr -> offsetX.writeS(std::string("552"));
+        m_GenICamImageFormat_ptr -> offsetY.writeS(std::string("412"));
+        m_GenICamImageFormat_ptr -> reverseY.write(bTrue);
 
         // Setup ImageDestination pointer
         m_destinationFormat_ptr = std::make_shared<ImageDestination>(m_cameraDevice);
