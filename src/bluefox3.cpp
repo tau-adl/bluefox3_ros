@@ -109,7 +109,7 @@
     // display some statistical information every 100th image
     const Statistics& s = threadParameter_ptr->statistics;
     const ros::Duration capture_time_corrected(s.captureTime_s.read()/10.0);
-    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/10000000.0/2.0);
+    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/1000000.0/2.0);
     if (threadParameter_ptr->requestsCaptured % 50 == 0)
     {
       ROS_INFO_STREAM_THROTTLE(2.0, "[" << m_node_name.c_str() << "]: "
@@ -143,10 +143,11 @@
 
       sensor_msgs::CameraInfo cinfo_msg = m_cinfoMgr_ptr->getCameraInfo();
 
-      std::lock_guard<std::mutex> lck(m_pub_mtx);
+      std::lock_guard<std::mutex> lck(m_pub_mtx); 
       if (!m_trigger_queue.empty()) {
           image_msg.header.stamp = m_trigger_queue.front().stamp + exposure_time_corrected;
           m_trigger_queue.pop();
+          ROS_INFO("[%d]", m_trigger_queue.size());
       }
 
       cinfo_msg.header = image_msg.header;
