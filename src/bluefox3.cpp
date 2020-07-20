@@ -6,17 +6,19 @@
         /* triggerCallback() method //{ */
         void Bluefox3::triggerCallback(const std_msgs::HeaderConstPtr msgPtr){
 
-            if (strcmp(m_GenICamACQ_ptr -> triggerMode.readS().c_str(), "On") == 0) {
+            //if (strcmp(m_GenICamACQ_ptr -> triggerMode.readS().c_str(), "On") == 0) {
                 // Make a copy for Queue
                 std_msgs::Header tmp_header;
                 tmp_header.seq = msgPtr->seq;
                 tmp_header.stamp = msgPtr->stamp;
                 tmp_header.frame_id = msgPtr->frame_id;
                 //m_GenICamACQ_ptr -> triggerSoftware.call();
-
+	        //int tcount = msgPtr->seq;
+                //std::cout << "Trigger number: " << tcount << std::endl;
+		//ROS_INFO("trigger sequence number: [%d]", msgPtr->seq);
                 std::lock_guard<std::mutex> lck(m_pub_mtx);
                 m_trigger_queue.push(tmp_header);
-            }
+           // }
         }
     /* pixelFormatToEncoding() function //{ */
 
@@ -109,7 +111,7 @@
     // display some statistical information every 100th image
     const Statistics& s = threadParameter_ptr->statistics;
     const ros::Duration capture_time_corrected(s.captureTime_s.read()/10.0);
-    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/1000000.0/2.0);
+    const ros::Duration exposure_time_corrected(request_ptr->chunkExposureTime.read()/1000000/2);
     if (threadParameter_ptr->requestsCaptured % 50 == 0)
     {
       ROS_INFO_STREAM_THROTTLE(2.0, "[" << m_node_name.c_str() << "]: "
@@ -137,19 +139,27 @@
       }
       sensor_msgs::Image image_msg;
       sensor_msgs::fillImage(image_msg, encoding, imh, imw, imstep, imdata);
-      ros::Time stamp = cbk_time - capture_time_corrected;
+      ros::Time stamp = cbk_time - capture_time_corrected + exposure_time_corrected;
       image_msg.header.stamp = stamp;
       image_msg.header.frame_id = m_frame_id;
 
       sensor_msgs::CameraInfo cinfo_msg = m_cinfoMgr_ptr->getCameraInfo();
+      //ROS_INFO_STREAM_THROTTLE(2.0, "frame Counter: " << s.frameCount.readS());
+      //std::lock_guard<std::mutex> lck(m_pub_mtx); 
 
-      std::lock_guard<std::mutex> lck(m_pub_mtx); 
       if (!m_trigger_queue.empty()) {
-          image_msg.header.stamp = m_trigger_queue.front().stamp + exposure_time_corrected;
+      int fcount = s.frameCount.read();
+      //std::cout << "Frame number: " << fcount << std::endl;
+      //ROS_INFO("[%d]", m_trigger_queue.size());
+          image_msg.header.stamp = m_trigger_queue.back().stamp + exposure_time_corrected;
+	  //ROS_DEBUG_STREAM("[" << m_node_name.c_str() << "]: " 
+	//		       << "Frame number: " << fcount << " Stamp Original: " << m_trigger_queue.front().stamp << " Stamp Corrected: " << image_msg.header.stamp);
+	  std::cout << "Frame number: " << fcount << " Stamp Original: " << m_trigger_queue.front().stamp << " Stamp Corrected: " << image_msg.header.stamp << std::endl;
+	  //ROS_INFO("STAMP[%d]: [%d]", image_msg.header.stamp);
           m_trigger_queue.pop();
-          ROS_INFO("[%d]", m_trigger_queue.size());
       }
-
+      else {std::cout << "queue empty!" << std::endl;}
+      std::lock_guard<std::mutex> lck(m_pub_mtx);
       cinfo_msg.header = image_msg.header;
       m_pub.publish(image_msg, cinfo_msg);
     } else
@@ -269,13 +279,13 @@
 
         // Optional
         getParamCheck(nh, "acquisition_mode", acq_mode, std::string("Continuous"));
-        getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Software"));
+        getParamCheck(nh, "trigger_source", acq_trigger_source, std::string("Counter1End"));
         getParamCheck(nh, "trigger_enable", acq_trigger_enable, std::string("On"));
         getParamCheck(nh, "trigger_select", acq_trigger_select, std::string("FrameStart"));
         getParamCheck(nh, "trigger_activation", acq_trigger_activation, std::string("AnyEdge"));
-        getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Continuous"));
-        getParamCheck(nh, "exposure_time", acq_exposure_time, std::string("10000"));
-        getParamCheck(nh, "exposure_auto_upper_limit", acq_autoexp_limit_upper, 25000.0);
+        getParamCheck(nh, "exposure_auto", acq_autoexp_mode, std::string("Off"));
+        getParamCheck(nh, "exposure_time", acq_exposure_time, std::string("25000"));
+        getParamCheck(nh, "exposure_auto_upper_limit", acq_autoexp_limit_upper, 30000.0);
         getParamCheck(nh, "exposure_auto_lower_limit", acq_autoexp_limit_lower, 10000.0);
 
         if (!success)
@@ -366,9 +376,10 @@
         m_GenICamCounterTimer_ptr -> counterSelector.writeS(std::string("Counter1"));
         m_GenICamCounterTimer_ptr -> counterEventSource.writeS(std::string("Line5"));
         m_GenICamCounterTimer_ptr -> counterEventActivation.writeS(std::string("RisingEdge"));
+	m_GenICamCounterTimer_ptr -> counterValue.writeS(std::string("0"));
         m_GenICamCounterTimer_ptr -> counterResetSource.writeS(std::string("Counter1End"));
         m_GenICamCounterTimer_ptr -> counterTriggerSource.writeS(std::string("Counter1End"));
-        m_GenICamCounterTimer_ptr -> counterDuration.writeS(std::string("10"));
+        m_GenICamCounterTimer_ptr -> counterDuration.writeS(std::string("5"));
 
         // Setup imageFormatControl configuration
         m_GenICamImageFormat_ptr = std::make_shared<GenICam::ImageFormatControl>(m_cameraDevice);
@@ -400,15 +411,17 @@
         const auto cbk_dynRec = boost::bind(&Bluefox3::dynRecCallback, this, _1, _2);
         m_dynRecServer_ptr->setCallback(cbk_dynRec);
 
+        // | ----------- Subscribe to trigger ----------- |
+        // setup the trigger subscriber callback
+        const auto cbk_sub = boost::bind(&Bluefox3::triggerCallback, this, _1);
+        m_sub = _nh.subscribe<std_msgs::Header>("trigger", 10, cbk_sub);
+
         // | ----------- Start the actual image acquisition ----------- |
         // setup acquisition callback, and start the queue.
         const auto cbk_img = std::bind(&Bluefox3::imageCallback, this, std::placeholders::_1, std::placeholders::_2);
         requestProvider_ptr->acquisitionStart(cbk_img, m_threadParam_ptr);
 
-        // | ----------- Subscribe to trigger ----------- |
-        // setup the trigger subscriber callback
-        const auto cbk_sub = boost::bind(&Bluefox3::triggerCallback, this, _1);
-        m_sub = _nh.subscribe<std_msgs::Header>("trigger", 10, cbk_sub);
+        
 
         m_running = true;
 

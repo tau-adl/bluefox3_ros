@@ -27,7 +27,7 @@
 
     <rosparam file="$(find bluefox3)/config/bluefox3.yaml" />
 
-    <param name="exposure_time" type="string" value="10000"/>
+    <param name="exposure_time" type="string" value="25000"/>
     <param name="exposure_auto_upper_limit" type="double" value="25000.0"/>
     <param name="exposure_auto_lower_limit" type="double" value="11000.0"/>
     <param name="camera_serial" type="string" value="$(arg serial)"/>
