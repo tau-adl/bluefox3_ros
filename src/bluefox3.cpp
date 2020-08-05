@@ -2,6 +2,8 @@
 
     namespace bluefox3
     {
+	ros::Time groundTime;
+	int first_frame_seq = -1;
 
         /* triggerCallback() method //{ */
         void Bluefox3::triggerCallback(const std_msgs::HeaderConstPtr msgPtr){
@@ -12,12 +14,17 @@
                 tmp_header.seq = msgPtr->seq;
                 tmp_header.stamp = msgPtr->stamp;
                 tmp_header.frame_id = msgPtr->frame_id;
+		if (first_frame_seq == -1) {
+			groundTime = tmp_header.stamp;
+			first_frame_seq = tmp_header.seq;
+			std::lock_guard<std::mutex> lck(m_pub_mtx);
+                	m_trigger_queue.push(tmp_header);
+			}
                 //m_GenICamACQ_ptr -> triggerSoftware.call();
 	        //int tcount = msgPtr->seq;
                 //std::cout << "Trigger number: " << tcount << std::endl;
 		//ROS_INFO("trigger sequence number: [%d]", msgPtr->seq);
-                std::lock_guard<std::mutex> lck(m_pub_mtx);
-                m_trigger_queue.push(tmp_header);
+             
            // }
         }
     /* pixelFormatToEncoding() function //{ */
@@ -149,14 +156,16 @@
 
       if (!m_trigger_queue.empty()) {
       int fcount = s.frameCount.read();
+      ros::Duration trigger_offset = ros::Duration((fcount - first_frame_seq - 1) * 0.05);
       //std::cout << "Frame number: " << fcount << std::endl;
       //ROS_INFO("[%d]", m_trigger_queue.size());
-          image_msg.header.stamp = m_trigger_queue.back().stamp + exposure_time_corrected;
+          //image_msg.header.stamp = m_trigger_queue.back().stamp + exposure_time_corrected;
+	  image_msg.header.stamp = groundTime + trigger_offset + exposure_time_corrected;
 	  //ROS_DEBUG_STREAM("[" << m_node_name.c_str() << "]: " 
 	//		       << "Frame number: " << fcount << " Stamp Original: " << m_trigger_queue.front().stamp << " Stamp Corrected: " << image_msg.header.stamp);
-	  std::cout << "Frame number: " << fcount << " Stamp Original: " << m_trigger_queue.front().stamp << " Stamp Corrected: " << image_msg.header.stamp << std::endl;
+	  //std::cout << "Frame number: " << fcount << " Stamp Original: " << image_msg.header.stamp -  exposure_time_corrected << " Stamp Corrected: " << image_msg.header.stamp << std::endl;
 	  //ROS_INFO("STAMP[%d]: [%d]", image_msg.header.stamp);
-          m_trigger_queue.pop();
+          //m_trigger_queue.pop();
       }
       else {std::cout << "queue empty!" << std::endl;}
       std::lock_guard<std::mutex> lck(m_pub_mtx);
@@ -317,8 +326,8 @@
         // Image & Destination Format
         // keeping these constant to ensure the rpi can handle the input data stream
         cfg.ifc_pixel_format = std::string("Mono8");
-        cfg.ifc_height = std::string("720");
-        cfg.ifc_width = std::string("960");
+        cfg.ifc_height = std::string("480");
+        cfg.ifc_width = std::string("640");
         cfg.dest_pixel_format = std::string("Mono8");
 
         //m_dynRecServer_ptr->updateConfig(cfg);
@@ -386,8 +395,8 @@
         m_GenICamImageFormat_ptr -> pixelFormat.writeS(cfg.ifc_pixel_format);
         m_GenICamImageFormat_ptr -> height.writeS(cfg.ifc_height);
         m_GenICamImageFormat_ptr -> width.writeS(cfg.ifc_width);
-        m_GenICamImageFormat_ptr -> offsetX.writeS(std::string("552"));
-        m_GenICamImageFormat_ptr -> offsetY.writeS(std::string("412"));
+        m_GenICamImageFormat_ptr -> offsetX.writeS(std::string("712"));
+        m_GenICamImageFormat_ptr -> offsetY.writeS(std::string("532"));
         m_GenICamImageFormat_ptr -> reverseY.write(bTrue);
 
         // Setup ImageDestination pointer
