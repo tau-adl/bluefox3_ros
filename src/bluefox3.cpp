@@ -280,6 +280,12 @@
         double acq_autoexp_limit_upper;
         double acq_autoexp_limit_lower;
 
+        int res_height;
+        int res_height_max;
+        int res_width;
+        int res_width_max;
+
+
         // Required
         success = success && getParamCheck(nh, "camera_serial", camera_serial);
         success = success && getParamCheck(nh, "camera_name", camera_name);
@@ -296,6 +302,8 @@
         getParamCheck(nh, "exposure_time", acq_exposure_time, std::string("25000"));
         getParamCheck(nh, "exposure_auto_upper_limit", acq_autoexp_limit_upper, 30000.0);
         getParamCheck(nh, "exposure_auto_lower_limit", acq_autoexp_limit_lower, 10000.0);
+        getParamCheck(nh, "height", res_height, 480);
+        getParamCheck(nh, "width", res_width, 640);
 
         if (!success)
         {
@@ -326,8 +334,8 @@
         // Image & Destination Format
         // keeping these constant to ensure the rpi can handle the input data stream
         cfg.ifc_pixel_format = std::string("Mono8");
-        cfg.ifc_height = std::string("480");
-        cfg.ifc_width = std::string("640");
+        cfg.ifc_height = res_height;
+        cfg.ifc_width = res_width;
         cfg.dest_pixel_format = std::string("Mono8");
 
         //m_dynRecServer_ptr->updateConfig(cfg);
@@ -385,7 +393,7 @@
         m_GenICamCounterTimer_ptr -> counterSelector.writeS(std::string("Counter1"));
         m_GenICamCounterTimer_ptr -> counterEventSource.writeS(std::string("Line5"));
         m_GenICamCounterTimer_ptr -> counterEventActivation.writeS(std::string("RisingEdge"));
-	m_GenICamCounterTimer_ptr -> counterValue.writeS(std::string("0"));
+	    m_GenICamCounterTimer_ptr -> counterValue.writeS(std::string("0"));
         m_GenICamCounterTimer_ptr -> counterResetSource.writeS(std::string("Counter1End"));
         m_GenICamCounterTimer_ptr -> counterTriggerSource.writeS(std::string("Counter1End"));
         m_GenICamCounterTimer_ptr -> counterDuration.writeS(std::string("5"));
@@ -393,10 +401,12 @@
         // Setup imageFormatControl configuration
         m_GenICamImageFormat_ptr = std::make_shared<GenICam::ImageFormatControl>(m_cameraDevice);
         m_GenICamImageFormat_ptr -> pixelFormat.writeS(cfg.ifc_pixel_format);
-        m_GenICamImageFormat_ptr -> height.writeS(cfg.ifc_height);
-        m_GenICamImageFormat_ptr -> width.writeS(cfg.ifc_width);
-        m_GenICamImageFormat_ptr -> offsetX.writeS(std::string("712"));
-        m_GenICamImageFormat_ptr -> offsetY.writeS(std::string("532"));
+        m_GenICamImageFormat_ptr -> height.write(cfg.ifc_height);
+        m_GenICamImageFormat_ptr -> width.write(cfg.ifc_width);
+        res_height_max = m_GenICamImageFormat_ptr -> heightMax.read();
+        res_width_max = m_GenICamImageFormat_ptr -> heightMax.read();
+        m_GenICamImageFormat_ptr -> offsetX.write(int(res_width_max/2 - res_width/2));
+        m_GenICamImageFormat_ptr -> offsetY.write(int(res_height_max/2 - res_height/2));
         m_GenICamImageFormat_ptr -> reverseY.write(bTrue);
 
         // Setup ImageDestination pointer
